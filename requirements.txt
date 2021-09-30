@@ -1,0 +1,6 @@
+binance-connector==1.6.0
+google-api-python-client==2.23.0
+google-auth-httplib2==0.1.0
+google-auth-oauthlib==0.4.5
+google-spreadsheet==0.0.6
+python-decouple==3.4
