@@ -16,7 +16,7 @@ balances = account['balances']
 
 #Read offline assets that are not on binance
 #If the asset does not exist on binance, it will be ignored
-filepath = os.getcwd()
+filepath = os.path.dirname(os.path.realpath(__file__))
 file = open(filepath + '/offline-assets.csv')
 csvreader = csv.reader(file)
 offline_assets = {}
@@ -71,7 +71,7 @@ SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 SPREADSHEET_ID = config('PORTFOLIO_SPREADSHEET_ID')
 RANGE = 'Portfolio!A2'
 credentials = None
-gs_keys = 'crypto-portfolio-key.json'
+gs_keys = filepath + '/crypto-portfolio-key.json'
 credentials = service_account.Credentials.from_service_account_file(gs_keys,
                                                                     scopes=SCOPES)
 service = build('sheets', 'v4', credentials=credentials)
