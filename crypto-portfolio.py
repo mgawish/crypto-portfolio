@@ -6,6 +6,7 @@ from datetime import datetime
 from decouple import config
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
+import requests
 
 #Binance api
 API_KEY = config('BINANCE_API_KEY')
@@ -34,6 +35,7 @@ for row in csvreader:
 assets = []
 total_usd_value = 0
 alloc_total = 0
+notification_required = False
 for b in balances:
     asset = b['asset']
     free = float(b['free'])
@@ -65,6 +67,7 @@ for i in range(len(assets)):
     amount = a[2]
     usd_value = price * amount
     alloc = usd_value / total_usd_value
+
     if target_allocations.get(asset) != None:
         target_alloc = target_allocations.get(asset)
         alloc_diff = target_alloc - alloc
@@ -73,6 +76,10 @@ for i in range(len(assets)):
         target_allocation = 0
         alloc_diff = 0
         amount_change = 0
+
+    if abs(alloc_diff) > target_alloc * 0.1:
+        notification_required = True
+
     assets[i] = [asset,
                  price,
                  amount,
@@ -81,8 +88,6 @@ for i in range(len(assets)):
                  target_alloc,
                  alloc_diff,
                  amount_change]
-
-print(assets)
 
 #Add overview
 file = open(filepath + '/investments.csv')
@@ -97,10 +102,18 @@ assets.append(['Percentage', total_usd_value / total_invested])
 now = datetime.now()
 assets.append(['Last updated at', now.strftime("%d/%m/%Y %H:%M:%S")])
 
+#Send discord notification if rebalancing is required
+if notification_required:
+    payload = {
+        "username": "CryptoBot",
+        "content": "Portfolio requires rebalancing"
+    }
+    response = requests.post(config('DISCORD_WEBHOOK_URL'), json=payload)
+
 #Write portfolio table to google sheet
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 SPREADSHEET_ID = config('PORTFOLIO_SPREADSHEET_ID')
-RANGE = 'Portfolio!A2'
+RANGE = config('PORTFOLIO_SHEET_RANGE')
 credentials = None
 gs_keys = filepath + '/crypto-portfolio-key.json'
 credentials = service_account.Credentials.from_service_account_file(gs_keys,
