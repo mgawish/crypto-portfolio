@@ -1,6 +1,7 @@
 from binance.spot import Spot
 import json
 import csv
+from datetime import datetime
 from decouple import config
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
@@ -50,6 +51,19 @@ for i in range(len(assets)):
     alloc = usd_value / total_usd_value
     assets[i] = [a[0], a[1], a[2], usd_value, alloc]
 
+#Add overview
+file = open('investments.csv')
+csvreader = csv.reader(file)
+total_invested = 0
+for row in csvreader:
+    total_invested += float(row[0])
+assets.append([])
+assets.append(['Investment', total_invested])
+assets.append(['Current value', total_usd_value])
+assets.append(['Percentage', total_usd_value / total_invested])
+now = datetime.now()
+assets.append(['Last updated at', now.strftime("%d/%m/%Y %H:%M:%S")])
+
 #Write portfolio table to google sheet
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 SPREADSHEET_ID = config('PORTFOLIO_SPREADSHEET_ID')
@@ -67,4 +81,5 @@ request = sheet.values().update(spreadsheetId=SPREADSHEET_ID,
                                 range=RANGE,
                                 valueInputOption='USER_ENTERED',
                                 body=body).execute()
+#Print goes to log
 print(request)
