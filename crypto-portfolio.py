@@ -15,7 +15,6 @@ account = client.account()
 balances = account['balances']
 
 #Read offline assets that are not on binance
-#If the asset does not exist on binance, it will be ignored
 filepath = os.path.dirname(os.path.realpath(__file__))
 file = open(filepath + '/offline-assets.csv')
 csvreader = csv.reader(file)
@@ -23,9 +22,18 @@ offline_assets = {}
 for row in csvreader:
     offline_assets[row[0]] = float(row[1])
 
+#Read target allocations
+filepath = os.path.dirname(os.path.realpath(__file__))
+file = open(filepath + '/target-allocations.csv')
+csvreader = csv.reader(file)
+target_allocations = {}
+for row in csvreader:
+    target_allocations[row[0]] = float(row[1])
+
 #Generate portfolio rows
 assets = []
 total_usd_value = 0
+alloc_total = 0
 for b in balances:
     asset = b['asset']
     free = float(b['free'])
@@ -47,11 +55,34 @@ for b in balances:
     total_usd_value += usdValue
     assets.append([asset, price, amount])
 
+    if target_allocations.get(asset) != None:
+        alloc_total += usdValue
+
 for i in range(len(assets)):
     a = assets[i]
-    usd_value = a[1] * a[2]
+    asset = a[0]
+    price = a[1]
+    amount = a[2]
+    usd_value = price * amount
     alloc = usd_value / total_usd_value
-    assets[i] = [a[0], a[1], a[2], usd_value, alloc]
+    if target_allocations.get(asset) != None:
+        target_alloc = target_allocations.get(asset)
+        alloc_diff = target_alloc - alloc
+        amount_change = (target_alloc * alloc_total - usd_value) / price
+    else:
+        target_allocation = 0
+        alloc_diff = 0
+        amount_change = 0
+    assets[i] = [asset,
+                 price,
+                 amount,
+                 usd_value,
+                 alloc,
+                 target_alloc,
+                 alloc_diff,
+                 amount_change]
+
+print(assets)
 
 #Add overview
 file = open(filepath + '/investments.csv')
