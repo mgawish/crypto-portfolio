@@ -82,4 +82,6 @@ request = sheet.values().update(spreadsheetId=SPREADSHEET_ID,
                                 valueInputOption='USER_ENTERED',
                                 body=body).execute()
 #Print goes to log
+print()
+print(now)
 print(request)
