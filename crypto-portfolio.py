@@ -1,6 +1,7 @@
 from binance.spot import Spot
 import json
 import csv
+import os
 from datetime import datetime
 from decouple import config
 from googleapiclient.discovery import build
@@ -15,7 +16,8 @@ balances = account['balances']
 
 #Read offline assets that are not on binance
 #If the asset does not exist on binance, it will be ignored
-file = open('offline-assets.csv')
+filepath = os.getcwd()
+file = open(filepath + '/offline-assets.csv')
 csvreader = csv.reader(file)
 offline_assets = {}
 for row in csvreader:
@@ -52,7 +54,7 @@ for i in range(len(assets)):
     assets[i] = [a[0], a[1], a[2], usd_value, alloc]
 
 #Add overview
-file = open('investments.csv')
+file = open(filepath + '/investments.csv')
 csvreader = csv.reader(file)
 total_invested = 0
 for row in csvreader:
