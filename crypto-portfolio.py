@@ -8,28 +8,23 @@ from googleapiclient.discovery import build
 from google.oauth2 import service_account
 import requests
 
+#Read config
+filepath = os.path.dirname(os.path.realpath(__file__))
+config = open(filepath + '/config.json')
+data = json.load(config)
+offline_assets = data['offline_assets']
+target_allocations = data['target_allocations']
+total_invested = data['total_invested']
+DISCORD_WEBHOOK_URL = data['discord_webhook_url']
+API_KEY = data['binance_api_key']
+API_SECRET = data['binance_api_secret']
+GOOGLE_SHEET_ID = data['google_sheet_id']
+GOOGLE_SHEET_RANGE = data['google_sheet_range']
+
 #Binance api
-API_KEY = config('BINANCE_API_KEY')
-API_SECRET = config('BINANCE_API_SECRET')
 client = Spot(key=API_KEY, secret=API_SECRET)
 account = client.account()
 balances = account['balances']
-
-#Read offline assets that are not on binance
-filepath = os.path.dirname(os.path.realpath(__file__))
-file = open(filepath + '/offline-assets.csv')
-csvreader = csv.reader(file)
-offline_assets = {}
-for row in csvreader:
-    offline_assets[row[0]] = float(row[1])
-
-#Read target allocations
-filepath = os.path.dirname(os.path.realpath(__file__))
-file = open(filepath + '/target-allocations.csv')
-csvreader = csv.reader(file)
-target_allocations = {}
-for row in csvreader:
-    target_allocations[row[0]] = float(row[1])
 
 #Generate portfolio rows
 assets = []
@@ -41,6 +36,7 @@ for b in balances:
     free = float(b['free'])
     locked = float(b['locked'])
     amount = free + locked
+
 
     if offline_assets.get(asset) != None:
         amount += offline_assets.get(asset)
@@ -89,12 +85,8 @@ for i in range(len(assets)):
                  alloc_diff,
                  amount_change]
 
+
 #Add overview
-file = open(filepath + '/investments.csv')
-csvreader = csv.reader(file)
-total_invested = 0
-for row in csvreader:
-    total_invested += float(row[0])
 assets.append([])
 assets.append(['Investment', total_invested])
 assets.append(['Current value', total_usd_value])
@@ -108,12 +100,10 @@ if notification_required:
         "username": "CryptoBot",
         "content": "Portfolio requires rebalancing"
     }
-    response = requests.post(config('DISCORD_WEBHOOK_URL'), json=payload)
+    response = requests.post(DISCORD_WEBHOOK_URL, json=payload)
 
 #Write portfolio table to google sheet
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
-SPREADSHEET_ID = config('PORTFOLIO_SPREADSHEET_ID')
-RANGE = config('PORTFOLIO_SHEET_RANGE')
 credentials = None
 gs_keys = filepath + '/crypto-portfolio-key.json'
 credentials = service_account.Credentials.from_service_account_file(gs_keys,
@@ -123,8 +113,8 @@ sheet = service.spreadsheets()
 body = {
     'values': assets
 }
-request = sheet.values().update(spreadsheetId=SPREADSHEET_ID,
-                                range=RANGE,
+request = sheet.values().update(spreadsheetId=GOOGLE_SHEET_ID,
+                                range=GOOGLE_SHEET_RANGE,
                                 valueInputOption='USER_ENTERED',
                                 body=body).execute()
 #Print goes to log
