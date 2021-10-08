@@ -98,8 +98,8 @@ overview.append(['Asset',
                  'Price',
                  'Amount',
                  'USD Value',
-                 'Target Alloc',
                  'Alloc',
+                 'Target Alloc',
                  'Alloc Diff',
                  'Amount Diff'])
 overview = overview + assets
