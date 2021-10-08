@@ -87,12 +87,22 @@ for i in range(len(assets)):
 
 
 #Add overview
-assets.append([])
-assets.append(['Investment', total_invested])
-assets.append(['Current value', total_usd_value])
-assets.append(['Percentage', total_usd_value / total_invested])
+overview = []
+overview.append(['Investment', total_invested])
+overview.append(['Current value', total_usd_value])
+overview.append(['Percentage', total_usd_value / total_invested])
 now = datetime.now()
-assets.append(['Last updated at', now.strftime("%d/%m/%Y %H:%M:%S")])
+overview.append(['Last updated at', now.strftime("%d/%m/%Y %H:%M:%S")])
+overview.append([])
+overview.append(['Asset',
+                 'Price',
+                 'Amount',
+                 'USD Value',
+                 'Target Alloc',
+                 'Alloc',
+                 'Alloc Diff',
+                 'Amount Diff'])
+overview = overview + assets
 
 #Send discord notification if rebalancing is required
 if notification_required:
@@ -111,7 +121,7 @@ credentials = service_account.Credentials.from_service_account_file(gs_keys,
 service = build('sheets', 'v4', credentials=credentials)
 sheet = service.spreadsheets()
 body = {
-    'values': assets
+    'values': overview
 }
 request = sheet.values().update(spreadsheetId=GOOGLE_SHEET_ID,
                                 range=GOOGLE_SHEET_RANGE,
