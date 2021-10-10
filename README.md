@@ -1,3 +1,3 @@
 # crypto-scripts
 
-Here are a few python scripts that help me manage and trade with my crypto assets.
+A script that manages a crypto portfolio, sends updates to a google sheet and sends a discord notification when threshold rebalancing is required.
