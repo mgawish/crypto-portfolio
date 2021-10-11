@@ -19,7 +19,7 @@ DISCORD_WEBHOOK_URL = data['discord_webhook_url']
 API_KEY = data['binance_api_key']
 API_SECRET = data['binance_api_secret']
 GOOGLE_SHEET_ID = data['google_sheet_id']
-GOOGLE_SHEET_RANGE = data['google_sheet_range']
+GOOGLE_SHEET_NAME = data['google_sheet_name']
 
 #Binance api
 client = Spot(key=API_KEY, secret=API_SECRET)
@@ -120,11 +120,20 @@ credentials = service_account.Credentials.from_service_account_file(gs_keys,
                                                                     scopes=SCOPES)
 service = build('sheets', 'v4', credentials=credentials)
 sheet = service.spreadsheets()
+
+#Clear sheet
+range = f'{GOOGLE_SHEET_NAME}!A1:Z'
+body = {}
+response = service.spreadsheets().values().clear(spreadsheetId=GOOGLE_SHEET_ID,
+                                                 range=range,
+                                                 body=body).execute()
+#Update sheet
+range = f'{GOOGLE_SHEET_NAME}!A1'
 body = {
     'values': overview
 }
 request = sheet.values().update(spreadsheetId=GOOGLE_SHEET_ID,
-                                range=GOOGLE_SHEET_RANGE,
+                                range=range,
                                 valueInputOption='USER_ENTERED',
                                 body=body).execute()
 #Print goes to log
