@@ -8,6 +8,7 @@ from googleapiclient.discovery import build
 from google.oauth2 import service_account
 import requests
 import pandas as pd
+import functools
 
 #Read config
 class Main():
@@ -36,6 +37,12 @@ class Main():
     notification_required = False
 
     def run_strategy(self):
+        values = self.target_allocations.values()
+        portfolio_alloc = functools.reduce(lambda a, b: a+b, values)
+        if portfolio_alloc != 1:
+            print('Allocation targets are not equal to 1')
+            return
+
         df = self.generate_assets()
         json_data = self.generate_overview(df)
         self.update_google_sheet(json_data)
