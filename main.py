@@ -168,7 +168,7 @@ class Main():
         return overview
 
     def send_notification(self):
-        url = data['discord_webhook_url']
+        url = self.config['discord_webhook_url']
         payload = {
             "username": "CryptoBot",
             "content": "Portfolio requires rebalancing"
