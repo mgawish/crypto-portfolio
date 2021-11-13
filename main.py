@@ -12,17 +12,7 @@ import pandas as pd
 #Read config
 class Main():
     filepath = os.path.dirname(os.path.realpath(__file__))
-    config = open(filepath + '/config.json')
-    data = json.load(config)
-    offline_assets = data['offline_assets']
-    target_allocations = data['target_allocations']
-    total_invested = data['total_invested']
-    DISCORD_WEBHOOK_URL = data['discord_webhook_url']
-    API_KEY = data['binance_api_key']
-    API_SECRET = data['binance_api_secret']
-    GOOGLE_SHEET_ID = data['google_sheet_id']
-    GOOGLE_SHEET_NAME = data['google_sheet_name']
-
+    config = json.load(open(filepath + '/config.json'))
     columns = ['asset',
                'price',
                'amount',
@@ -36,23 +26,33 @@ class Main():
     notification_required = False
 
     def run_strategy(self):
-        values = self.target_allocations.values()
+        target_allocations = self.config['target_allocations']
+        values = target_allocations.values()
         portfolio_alloc = round(sum(values), 2)
 
         if portfolio_alloc != 1:
             print(f'Allocation targets are equal to {portfolio_alloc}')
             return
 
-        df = self.generate_assets()
-        json_data = self.generate_overview(df)
-        self.update_google_sheet(json_data)
-        if self.notification_required:
+        assets = self.fetch_bsc_balance()
+        assets = self.fetch_binance_balance() + assets
+
+        df = self.generate_df(assets)
+        dff =  df[abs(df['alloc_diff']) > df['target_alloc'] * 0.1]
+        if not dff.empty:
             self.send_notification()
 
-    def generate_assets(self):
-        client = Spot(key=self.API_KEY, secret=self.API_SECRET)
+        json_data = self.generate_overview(df)
+        self.update_google_sheet(json_data)
+
+    def fetch_binance_balance(self):
+        api_key = self.config['binance_api_key']
+        api_secret = self.config['binance_api_secret']
+        client = Spot(key=api_key, secret=api_secret)
         account = client.account()
         balances = account['balances']
+        offline_assets = self.config['offline_assets']
+        target_allocations = self.config['target_allocations']
         assets = []
 
         for b in balances:
@@ -61,8 +61,8 @@ class Main():
             locked = float(b['locked'])
             amount = free + locked
 
-            if self.offline_assets.get(asset) != None:
-                amount += self.offline_assets.get(asset)
+            if offline_assets.get(asset) != None:
+                amount += offline_assets.get(asset)
 
             if amount == 0:
                 continue
@@ -72,8 +72,8 @@ class Main():
             else:
                 price = float(client.ticker_price(f'{asset}USDT')['price'])
 
-            if self.target_allocations.get(asset) != None:
-                target_alloc = self.target_allocations.get(asset)
+            if target_allocations.get(asset) != None:
+                target_alloc = target_allocations.get(asset)
             else:
                 target_alloc = 0
 
@@ -85,6 +85,52 @@ class Main():
                 'target_alloc': target_alloc
             })
 
+        return assets
+
+    def fetch_bsc_balance(self):
+        wallet_address = self.config['wallet_address']
+        api_key = self.config['bsc_api_key']
+        contracts = self.config['wallet_contracts']
+        assets = []
+        for symbol in contracts:
+            url = 'https://api.bscscan.com/api'
+            params = {
+                'module': 'account',
+                'action': 'tokenbalance',
+                'contractaddress': contracts[symbol],
+                'address': wallet_address,
+                'apiKey': api_key,
+                'tag': 'latest'
+            }
+
+            response = requests.get(url, params=params)
+            json_data = json.loads(response.text)
+            amount = float(json_data['result']) * 10**-18
+            price = self.fetch_cmc_price(symbol)
+
+            assets.append({
+                'asset': symbol,
+                'price': price,
+                'amount': amount,
+                'target_alloc': 0
+            })
+
+        return assets
+
+    def fetch_cmc_price(self, symbol):
+        url = 'https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest'
+        params = {
+            'symbol': symbol
+        }
+        headers = {
+            'X-CMC_PRO_API_KEY': self.config['cmc_api_key'],
+            'Accept': 'application/json'
+        }
+        response = requests.get(url, params=params, headers=headers)
+        json_data = json.loads(response.text)
+        return json_data['data'][symbol]['quote']['USD']['price']
+
+    def generate_df(self, assets):
         df = pd.DataFrame(data=assets, columns=self.columns)
         df['value'] = df['price'] * df['amount']
         self.total_value = df['value'].sum()
@@ -101,17 +147,14 @@ class Main():
 
         df = df.sort_values('value', ascending=False)
 
-        dff =  df[abs(df['alloc_diff']) > df['target_alloc'] * 0.1]
-        if not dff.empty:
-            self.notification_required = True
-
         return df
 
     def generate_overview(self, df):
+        total_invested = self.config['total_invested']
         overview = []
-        overview.append(['Investment', self.total_invested])
+        overview.append(['Investment', total_invested])
         overview.append(['Current value', self.total_value])
-        overview.append(['Percentage', self.total_value / self.total_invested])
+        overview.append(['Percentage', self.total_value / total_invested])
         now = datetime.now()
         overview.append(['Last updated at', now.strftime("%d/%m/%Y %H:%M:%S")])
         overview.append([])
@@ -125,14 +168,16 @@ class Main():
         return overview
 
     def send_notification(self):
-        print('send_notification')
+        url = data['discord_webhook_url']
         payload = {
             "username": "CryptoBot",
             "content": "Portfolio requires rebalancing"
         }
-        response = requests.post(self.DISCORD_WEBHOOK_URL, json=payload)
+        response = requests.post(url, json=payload)
 
     def update_google_sheet(self, data):
+        sheet_name = self.config['google_sheet_name']
+        sheet_id = self.config['google_sheet_id']
         SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
         credentials = None
         gs_keys = self.filepath + '/crypto-portfolio-key.json'
@@ -142,17 +187,17 @@ class Main():
         sheet = service.spreadsheets()
 
         #Clear sheet
-        range = f'{self.GOOGLE_SHEET_NAME}!A1:Z'
+        range = f'{sheet_name}!A1:Z'
         body = {}
-        response = service.spreadsheets().values().clear(spreadsheetId=self.GOOGLE_SHEET_ID,
+        response = service.spreadsheets().values().clear(spreadsheetId=sheet_id,
                                                          range=range,
                                                          body=body).execute()
         #Update sheet
-        range = f'{self.GOOGLE_SHEET_NAME}!A1'
+        range = f'{sheet_name}!A1'
         body = {
             'values': data
         }
-        request = sheet.values().update(spreadsheetId=self.GOOGLE_SHEET_ID,
+        request = sheet.values().update(spreadsheetId=sheet_id,
                                         range=range,
                                         valueInputOption='USER_ENTERED',
                                         body=body).execute()
